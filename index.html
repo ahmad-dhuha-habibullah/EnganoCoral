@@ -5,13 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Enggano Island - Regional Coral Health Dashboard</title>
     
-    <!-- CSS Libraries -->
+    <!-- CSS & JS Libraries -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
-    
-    <!-- JS Libraries -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -23,6 +22,8 @@
         .font-header { font-family: 'Teko', sans-serif; }
         #map { height: 100%; width: 100%; border-radius: 0.75rem; z-index: 1; }
         .leaflet-tooltip { background-color: rgba(255, 255, 255, 0.9); border: 1px solid #ccc; border-radius: 4px; padding: 4px 8px; font-weight: 600; color: #333; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
+        .sort-icon { display: inline-block; width: 1em; height: 1em; margin-left: 0.5em; opacity: 0.4; }
+        .th-sortable { cursor: pointer; }
     </style>
 </head>
 <body class="text-slate-800">
@@ -46,23 +47,29 @@
                         <p class="text-center py-8">Click on a region on the map to view its detailed statistics.</p>
                     </div>
                 </div>
-                <div id="chart-container" class="bg-white p-6 rounded-xl shadow-lg" style="display: none;">
-                    <h2 id="chart-title" class="font-header text-3xl font-semibold border-b-2 border-slate-200 pb-2 mb-4 text-center"></h2>
+                <div id="chart-panel" class="bg-white p-6 rounded-xl shadow-lg" style="display: none;">
+                    <div class="flex justify-between items-center border-b-2 border-slate-200 pb-2 mb-4">
+                        <h2 id="chart-title" class="font-header text-3xl font-semibold text-center"></h2>
+                        <button id="export-chart-btn" class="text-sm bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Save as PNG</button>
+                    </div>
                     <div><canvas id="timeSeriesChart"></canvas></div>
                 </div>
             </div>
         </div>
         
         <div class="mt-6 bg-white p-6 rounded-xl shadow-lg">
-             <h2 class="font-header text-4xl font-semibold text-center mb-4">Complete Regional Data</h2>
+            <div class="flex justify-between items-center mb-4">
+                 <h2 class="font-header text-4xl font-semibold text-center">Complete Regional Data</h2>
+                 <button id="export-table-btn" class="text-sm bg-slate-600 hover:bg-slate-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Export to CSV</button>
+            </div>
              <div class="overflow-x-auto max-h-96">
                  <table class="min-w-full divide-y divide-gray-200">
                     <thead class="bg-slate-50 sticky top-0">
                         <tr>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Year</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Region</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Coral Area (km²)</th>
-                            <th class="px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider">Rubble Area (km²)</th>
+                            <th class="th-sortable px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider" data-sort="Year">Year <span class="sort-icon"></span></th>
+                            <th class="th-sortable px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider" data-sort="Region">Region <span class="sort-icon"></span></th>
+                            <th class="th-sortable px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider" data-sort="Coral Area (km²)">Coral Area (km²) <span class="sort-icon"></span></th>
+                            <th class="th-sortable px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider" data-sort="Rubble Area (km²)">Rubble Area (km²) <span class="sort-icon"></span></th>
                         </tr>
                     </thead>
                     <tbody id="data-table-body" class="bg-white divide-y divide-gray-200"></tbody>
@@ -72,50 +79,125 @@
     </div>
 
     <script>
-    // --- DATA LOADING AND DASHBOARD LOGIC ---
+    // --- GLOBAL STATE & ICONS ---
+    let timeSeriesChart;
+    let fullDataset = [];
+    const sortIcons = {
+        none: '&#x2195;', // Up-down arrow
+        asc: '&#x2191;',  // Up arrow
+        desc: '&#x2193;' // Down arrow
+    };
+    let currentSort = { column: 'Year', order: 'asc' };
 
-    // Helper function to parse CSV text into an array of objects
-    function parseCSV(text) {
-        const lines = text.trim().split('\n');
-        const headers = lines[0].split(',').map(h => h.trim());
-        return lines.slice(1).map(line => {
-            const values = line.split(',');
-            return headers.reduce((obj, header, index) => {
-                const value = values[index].trim();
-                obj[header] = isNaN(value) || value === '' ? value : Number(value);
-                return obj;
-            }, {});
-        });
+    // --- DATA LOADING & INITIALIZATION ---
+    document.addEventListener('DOMContentLoaded', initializeDashboard);
+
+    async function initializeDashboard() {
+        try {
+            const [allDataResponse, statsDataResponse, geojsonResponse] = await Promise.all([
+                fetch('./data/all_data.csv'),
+                fetch('./data/stats_summary.csv'),
+                fetch('./data/regions.geojson')
+            ]);
+            
+            const allDataText = await allDataResponse.text();
+            const statsDataText = await statsDataResponse.text();
+            const geojsonData = await geojsonResponse.json();
+
+            fullDataset = Papa.parse(allDataText, { header: true, dynamicTyping: true }).data;
+            const statsData = Papa.parse(statsDataText, { header: true, dynamicTyping: true }).data;
+            
+            buildPage(fullDataset, statsData, geojsonData);
+
+        } catch (error) {
+            console.error("Failed to load data:", error);
+            document.body.innerHTML = `<div class="text-center p-10"><h1>Error loading data</h1><p>Could not load necessary data files from the 'data' folder. Please ensure they exist and the server is running correctly.</p><p>Error: ${error}</p></div>`;
+        }
     }
 
-    // Load all data files asynchronously
-    Promise.all([
-        fetch('./data/all_data.csv').then(response => response.text()),
-        fetch('./data/stats_summary.csv').then(response => response.text()),
-        fetch('./data/regions.geojson').then(response => response.json())
-    ]).then(([allDataCSV, statsDataCSV, geojsonData]) => {
-
-        // Parse the CSV data
-        const allData = parseCSV(allDataCSV);
-        const statsData = parseCSV(statsDataCSV);
-
-        // --- MAP INITIALIZATION ---
+    function buildPage(allData, statsData, geojsonData) {
+        // --- MAP ---
         const map = L.map('map').setView([-5.38, 102.25], 10.5);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
         }).addTo(map);
 
-        // --- CHART INITIALIZATION ---
-        let timeSeriesChart;
+        // --- TABLE & SORTING ---
+        const tableHeaders = document.querySelectorAll('.th-sortable');
+        
+        function populateTable(data) {
+            const tableBody = document.getElementById('data-table-body');
+            tableBody.innerHTML = ''; // Clear existing rows
+            data.forEach(row => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                    <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-slate-900">${row.Year}</td>
+                    <td class="px-4 py-2 whitespace-nowrap text-sm text-slate-600">${row.Region}</td>
+                    <td class="px-4 py-2 whitespace-nowrap text-sm text-slate-500">${row['Coral Area (km²)'].toFixed(6)}</td>
+                    <td class="px-4 py-2 whitespace-nowrap text-sm text-slate-500">${row['Rubble Area (km²)'].toFixed(6)}</td>`;
+                tableBody.appendChild(tr);
+            });
+        }
+
+        function updateSortIcons() {
+            tableHeaders.forEach(header => {
+                const sortKey = header.getAttribute('data-sort');
+                const icon = header.querySelector('.sort-icon');
+                if (sortKey === currentSort.column) {
+                    icon.innerHTML = sortIcons[currentSort.order];
+                    icon.style.opacity = '1';
+                } else {
+                    icon.innerHTML = sortIcons.none;
+                    icon.style.opacity = '0.4';
+                }
+            });
+        }
+        
+        tableHeaders.forEach(header => {
+            header.addEventListener('click', () => {
+                const sortKey = header.getAttribute('data-sort');
+                if (currentSort.column === sortKey) {
+                    currentSort.order = currentSort.order === 'asc' ? 'desc' : 'asc';
+                } else {
+                    currentSort.column = sortKey;
+                    currentSort.order = 'asc';
+                }
+                
+                fullDataset.sort((a, b) => {
+                    const valA = a[currentSort.column];
+                    const valB = b[currentSort.column];
+                    let comparison = 0;
+                    if (valA > valB) comparison = 1;
+                    else if (valA < valB) comparison = -1;
+                    return currentSort.order === 'desc' ? comparison * -1 : comparison;
+                });
+                
+                populateTable(fullDataset);
+                updateSortIcons();
+            });
+        });
+
+        // Initial population
+        populateTable(allData);
+        updateSortIcons();
+
+
+        // --- CHART ---
         const chartCanvas = document.getElementById('timeSeriesChart').getContext('2d');
         
         function createOrUpdateChart(regionName) {
+            const chartPanel = document.getElementById('chart-panel');
             const regionData = allData.filter(d => d.Region === regionName);
-            const years = regionData.map(d => d.Year).sort();
-            const coralData = regionData.sort((a,b) => a.Year - b.Year).map(d => d['Coral Area (km²)']);
-            const rubbleData = regionData.sort((a,b) => a.Year - b.Year).map(d => d['Rubble Area (km²)']);
+            if (!regionData.length) {
+                chartPanel.style.display = 'none';
+                return;
+            }
+            chartPanel.style.display = 'block';
 
-            document.getElementById('chart-container').style.display = 'block';
+            const years = [...new Set(regionData.map(d => d.Year))].sort((a,b) => a-b);
+            const coralData = years.map(year => regionData.find(d => d.Year === year)['Coral Area (km²)']);
+            const rubbleData = years.map(year => regionData.find(d => d.Year === year)['Rubble Area (km²)']);
+
             document.getElementById('chart-title').innerText = `${regionName} Trends`;
             if (timeSeriesChart) timeSeriesChart.destroy();
 
@@ -132,18 +214,10 @@
             });
         }
 
-        // --- INTERACTIVITY LOGIC ---
+        // --- MAP INTERACTIVITY ---
         const infoContent = document.getElementById('info-content');
         let geojsonLayer;
 
-        function highlightFeature(e) {
-            e.target.setStyle({ weight: 4, color: '#0891b2', fillOpacity: 0.5 }).bringToFront();
-        }
-
-        function resetHighlight(e) {
-            geojsonLayer.resetStyle(e.target);
-        }
-        
         function onFeatureClick(e) {
             const regionName = e.target.feature.properties.name;
             const stats = statsData.find(d => d.Region === regionName);
@@ -155,17 +229,17 @@
                         <div>
                             <h4 class="font-semibold text-cyan-700">Coral Reef Area (km²)</h4>
                             <ul class="list-disc list-inside text-sm pl-2">
-                                <li><strong>Mean:</strong> ${stats.Mean_Coral_Area_km2.toFixed(4)}</li>
-                                <li><strong>Min:</strong> ${stats.Min_Coral_Area_km2.toFixed(4)}</li>
-                                <li><strong>Max:</strong> ${stats.Max_Coral_Area_km2.toFixed(4)}</li>
+                                <li><strong>Mean:</strong> ${stats.Mean_Coral_Area_km2.toFixed(6)}</li>
+                                <li><strong>Min:</strong> ${stats.Min_Coral_Area_km2.toFixed(6)}</li>
+                                <li><strong>Max:</strong> ${stats.Max_Coral_Area_km2.toFixed(6)}</li>
                             </ul>
                         </div>
                         <div>
                             <h4 class="font-semibold text-orange-600">Rubble Area (km²)</h4>
                             <ul class="list-disc list-inside text-sm pl-2">
-                                <li><strong>Mean:</strong> ${stats.Mean_Rubble_Area_km2.toFixed(4)}</li>
-                                <li><strong>Min:</strong> ${stats.Min_Rubble_Area_km2.toFixed(4)}</li>
-                                <li><strong>Max:</strong> ${stats.Max_Rubble_Area_km2.toFixed(4)}</li>
+                                <li><strong>Mean:</strong> ${stats.Mean_Rubble_Area_km2.toFixed(6)}</li>
+                                <li><strong>Min:</strong> ${stats.Min_Rubble_Area_km2.toFixed(6)}</li>
+                                <li><strong>Max:</strong> ${stats.Max_Rubble_Area_km2.toFixed(6)}</li>
                             </ul>
                         </div>
                     </div>`;
@@ -174,34 +248,38 @@
             map.fitBounds(e.target.getBounds());
         }
 
-        function onEachFeature(feature, layer) {
-            layer.on({ mouseover: highlightFeature, mouseout: resetHighlight, click: onFeatureClick });
-            layer.bindTooltip(feature.properties.name, { permanent: false, direction: 'center', className: 'leaflet-tooltip' });
-        }
-
         geojsonLayer = L.geoJSON(geojsonData, {
             style: { color: '#0e7490', weight: 2, opacity: 0.8, fillColor: '#67e8f9', fillOpacity: 0.3 },
-            onEachFeature: onEachFeature
+            onEachFeature: (feature, layer) => {
+                layer.on({
+                    mouseover: e => e.target.setStyle({ weight: 4, color: '#0891b2', fillOpacity: 0.5 }).bringToFront(),
+                    mouseout: e => geojsonLayer.resetStyle(e.target),
+                    click: onFeatureClick
+                });
+                layer.bindTooltip(feature.properties.name, { permanent: false, direction: 'center', className: 'leaflet-tooltip' });
+            }
         }).addTo(map);
-        
         map.fitBounds(geojsonLayer.getBounds());
-
-        // --- DATA TABLE POPULATION ---
-        const tableBody = document.getElementById('data-table-body');
-        allData.forEach(row => {
-            const tr = document.createElement('tr');
-            tr.innerHTML = `
-                <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-slate-900">${row.Year}</td>
-                <td class="px-4 py-2 whitespace-nowrap text-sm text-slate-600">${row.Region}</td>
-                <td class="px-4 py-2 whitespace-nowrap text-sm text-slate-500">${row['Coral Area (km²)'].toFixed(4)}</td>
-                <td class="px-4 py-2 whitespace-nowrap text-sm text-slate-500">${row['Rubble Area (km²)'].toFixed(4)}</td>`;
-            tableBody.appendChild(tr);
+        
+        // --- EXPORT FUNCTIONS ---
+        document.getElementById('export-chart-btn').addEventListener('click', () => {
+            if (timeSeriesChart) {
+                const link = document.createElement('a');
+                link.href = timeSeriesChart.toBase64Image();
+                link.download = `${document.getElementById('chart-title').innerText.replace(' Trends', '')}-chart.png`;
+                link.click();
+            }
         });
-
-    }).catch(error => {
-        console.error('Error loading data:', error);
-        document.body.innerHTML = `<div class="text-center p-10"><h1>Error loading data</h1><p>Could not load data files. If you are viewing this locally, ensure you are running a local web server due to CORS policy.</p><p>Error: ${error}</p></div>`;
-    });
+        
+        document.getElementById('export-table-btn').addEventListener('click', () => {
+            const csv = Papa.unparse(fullDataset);
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute('download', 'enggano_reef_data.csv');
+            link.click();
+        });
+    }
     </script>
 </body>
 </html>
