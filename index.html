@@ -11,6 +11,10 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
+    
+    <!-- GeoTIFF Libraries -->
+    <script src="https://unpkg.com/georaster"></script>
+    <script src="https://unpkg.com/georaster-layer-for-leaflet"></script>
 
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -18,67 +22,132 @@
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Teko:wght@500;600&display=swap" rel="stylesheet">
 
     <style>
+        html { scroll-behavior: smooth; }
         body { font-family: 'Roboto', sans-serif; background-color: #f0f4f8; }
         .font-header { font-family: 'Teko', sans-serif; }
-        #map { height: 100%; width: 100%; border-radius: 0.75rem; z-index: 1; }
+        #map, #evolution-map { height: 100%; width: 100%; border-radius: 0.75rem; z-index: 1; }
         .leaflet-tooltip { background-color: rgba(255, 255, 255, 0.9); border: 1px solid #ccc; border-radius: 4px; padding: 4px 8px; font-weight: 600; color: #333; box-shadow: 0 1px 3px rgba(0,0,0,0.2); }
         .sort-icon { display: inline-block; width: 1em; height: 1em; margin-left: 0.5em; opacity: 0.4; }
         .th-sortable { cursor: pointer; }
+        .legend { line-height: 18px; color: #555; background-color: white; padding: 6px 8px; border-radius: 5px; box-shadow: 0 0 15px rgba(0,0,0,0.2); }
+        .legend i { width: 18px; height: 18px; float: left; margin-right: 8px; opacity: 0.8; }
+        .nav-link.active { background-color: #4f46e5; color: white; }
     </style>
 </head>
 <body class="text-slate-800">
-
+    <!-- Sticky Navigation Bar -->
+    <nav class="sticky top-0 bg-white/80 backdrop-blur-sm shadow-md z-40 mb-6">
+        <div class="container mx-auto flex justify-center p-2 gap-4">
+            <a href="https://ahmad-dhuha-habibullah.github.io/EnganoCoral/" class="nav-link px-4 py-2 font-bold rounded-lg transition duration-200 hover:bg-slate-200" title="Home">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                </svg>
+            </a>
+            <a href="#dashboard-section" class="nav-link px-4 py-2 font-bold rounded-lg transition duration-200 hover:bg-slate-200">Dashboard</a>
+            <a href="#evolution-section" class="nav-link px-4 py-2 font-bold rounded-lg transition duration-200 hover:bg-slate-200">Reef Evolution</a>
+            <a href="#datatable-section" class="nav-link px-4 py-2 font-bold rounded-lg transition duration-200 hover:bg-slate-200">Data Table</a>
+        </div>
+    </nav>
+    
     <div class="container mx-auto p-4 lg:p-6">
         <!-- Header -->
-        <header class="text-center mb-6">
+        <header class="text-center mb-8">
             <h1 class="font-header text-5xl md:text-6xl font-semibold text-slate-700 tracking-wide">ENGGANO REEF DASHBOARD</h1>
-            <p class="text-slate-500 text-lg">Regional Coral & Rubble Area Analysis (2011-2021)</p>
+            <p class="text-slate-500 text-lg max-w-3xl mx-auto mt-2">
+                An interactive exploration of coral reef and rubble area changes around Enggano Island from 2011 to 2021.
+            </p>
         </header>
 
-        <!-- Main Content Grid -->
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <div class="lg:col-span-2 bg-white p-4 rounded-xl shadow-lg h-[60vh] lg:h-[calc(100vh-140px)]">
-                <div id="map"></div>
-            </div>
-            <div class="lg:col-span-1 flex flex-col gap-6">
-                <div id="info-panel" class="bg-white p-6 rounded-xl shadow-lg flex-grow">
-                    <div class="flex justify-between items-center border-b-2 border-slate-200 pb-2 mb-4">
-                        <h2 id="stats-title" class="font-header text-3xl font-semibold">Region Statistics</h2>
-                        <button id="show-overall-btn" class="text-xs bg-slate-200 hover:bg-slate-300 text-slate-600 font-bold py-1 px-3 rounded-lg transition duration-300" style="display: none;">Show Overall</button>
+        <!-- Main Dashboard Section -->
+        <section id="dashboard-section" class="mb-8">
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 bg-white p-4 rounded-xl shadow-lg h-[75vh]">
+                    <div id="map"></div>
+                </div>
+                <div class="lg:col-span-1 flex flex-col gap-6">
+                    <div id="info-panel" class="bg-white p-6 rounded-xl shadow-lg flex-grow">
+                        <div class="flex justify-between items-center border-b-2 border-slate-200 pb-2 mb-4">
+                            <div class="flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" /><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                                <h2 id="stats-title" class="font-header text-3xl font-semibold">Region Statistics</h2>
+                            </div>
+                            <button id="show-overall-btn" class="text-xs bg-slate-200 hover:bg-slate-300 text-slate-600 font-bold py-1 px-3 rounded-lg transition duration-300" style="display: none;">Show Overall</button>
+                        </div>
+                        <div id="info-content" class="text-slate-600">
+                            <p class="text-center py-8">Loading statistics...</p>
+                        </div>
                     </div>
-                    <div id="info-content" class="text-slate-600">
-                        <p class="text-center py-8">Loading statistics...</p>
+                    <div id="chart-panel" class="bg-white p-6 rounded-xl shadow-lg">
+                        <div class="flex justify-between items-center border-b-2 border-slate-200 pb-2 mb-4">
+                            <div class="flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+                                <h2 id="chart-title" class="font-header text-3xl font-semibold text-center"></h2>
+                            </div>
+                            <button id="export-chart-btn" class="text-sm bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Save as PNG</button>
+                        </div>
+                        <div><canvas id="timeSeriesChart"></canvas></div>
                     </div>
                 </div>
-                <div id="chart-panel" class="bg-white p-6 rounded-xl shadow-lg">
-                    <div class="flex justify-between items-center border-b-2 border-slate-200 pb-2 mb-4">
-                        <h2 id="chart-title" class="font-header text-3xl font-semibold text-center"></h2>
-                        <button id="export-chart-btn" class="text-sm bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Save as PNG</button>
-                    </div>
-                    <div><canvas id="timeSeriesChart"></canvas></div>
+            </div>
+        </section>
+
+        <!-- Analysis Section -->
+        <section id="analysis-section" class="mb-8">
+            <div class="bg-white p-6 rounded-xl shadow-lg">
+                 <div class="flex items-center gap-2 mb-4">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    <h2 class="font-header text-4xl font-semibold text-center">Analysis & Key Insights</h2>
+                </div>
+                <div id="analysis-content" class="text-slate-700 space-y-2">
+                    <p>Analyzing the data from 2011 to 2021 reveals distinct patterns across Enggano Island's reef regions:</p>
                 </div>
             </div>
-        </div>
-        
-        <div class="mt-6 bg-white p-6 rounded-xl shadow-lg">
-            <div class="flex justify-between items-center mb-4">
-                 <h2 class="font-header text-4xl font-semibold text-center">Complete Regional Data</h2>
-                 <button id="export-table-btn" class="text-sm bg-slate-600 hover:bg-slate-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Export to CSV</button>
+        </section>
+
+        <!-- Evolution Viewer Section -->
+        <section id="evolution-section" class="mb-8">
+            <div class="bg-white p-6 rounded-xl shadow-lg">
+                <h2 class="font-header text-4xl font-semibold text-center mb-4">Coral Reef Evolution Viewer</h2>
+                <div class="h-[70vh] w-full rounded-lg shadow-inner bg-slate-200 relative">
+                    <div id="evolution-map"></div>
+                    <div id="evolution-map-loader" class="absolute inset-0 bg-black bg-opacity-25 flex-col items-center justify-center z-20" style="display: none;">
+                        <div class="text-white font-bold text-xl mb-2">Loading GeoTIFF...</div>
+                        <div class="w-12 h-12 border-4 border-t-transparent border-white rounded-full animate-spin"></div>
+                    </div>
+                </div>
+                <div class="mt-4 flex flex-col sm:flex-row items-center gap-4">
+                    <div class="flex items-center gap-2">
+                        <button id="play-pause-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Play</button>
+                        <button id="stop-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Stop</button>
+                    </div>
+                    <input id="year-slider" type="range" min="2011" max="2021" value="2011" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                    <span id="year-label" class="font-bold text-lg w-16 text-center">2011</span>
+                </div>
             </div>
-             <div class="overflow-x-auto max-h-96">
-                 <table class="min-w-full divide-y divide-gray-200">
-                    <thead class="bg-slate-50 sticky top-0">
-                        <tr>
-                            <th class="th-sortable px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider" data-sort="Year">Year <span class="sort-icon"></span></th>
-                            <th class="th-sortable px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider" data-sort="Region">Region <span class="sort-icon"></span></th>
-                            <th class="th-sortable px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider" data-sort="Coral Area (km²)">Coral Area (km²) <span class="sort-icon"></span></th>
-                            <th class="th-sortable px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider" data-sort="Rubble Area (km²)">Rubble Area (km²) <span class="sort-icon"></span></th>
-                        </tr>
-                    </thead>
-                    <tbody id="data-table-body" class="bg-white divide-y divide-gray-200"></tbody>
-                 </table>
-             </div>
-        </div>
+        </section>
+
+        <!-- Data Table Section -->
+        <section id="datatable-section" class="mb-8">
+            <div class="bg-white p-6 rounded-xl shadow-lg">
+                <div class="flex justify-between items-center mb-4">
+                     <h2 class="font-header text-4xl font-semibold text-center">Complete Regional Data</h2>
+                     <button id="export-table-btn" class="text-sm bg-slate-600 hover:bg-slate-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Export to CSV</button>
+                </div>
+                 <div class="overflow-x-auto max-h-[80vh]">
+                     <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-slate-50 sticky top-0">
+                            <tr>
+                                <th class="th-sortable px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider" data-sort="Year">Year <span class="sort-icon"></span></th>
+                                <th class="th-sortable px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider" data-sort="Region">Region <span class="sort-icon"></span></th>
+                                <th class="th-sortable px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider" data-sort="Coral Area (km²)">Coral Area (km²) <span class="sort-icon"></span></th>
+                                <th class="th-sortable px-4 py-3 text-left text-xs font-medium text-slate-500 uppercase tracking-wider" data-sort="Rubble Area (km²)">Rubble Area (km²) <span class="sort-icon"></span></th>
+                            </tr>
+                        </thead>
+                        <tbody id="data-table-body" class="bg-white divide-y divide-gray-200"></tbody>
+                     </table>
+                 </div>
+            </div>
+        </section>
     </div>
 
     <script>
@@ -86,6 +155,7 @@
     let timeSeriesChart;
     let fullDataset = [];
     let overallEngganoData = [];
+    let regionalMap, evolutionMap;
     const sortIcons = {
         none: '&#x2195;', asc: '&#x2191;', desc: '&#x2193;'
     };
@@ -106,12 +176,14 @@
             const statsDataText = await statsDataResponse.text();
             const geojsonData = await geojsonResponse.json();
 
-            // Use PapaParse with skipEmptyLines to prevent errors from trailing newlines in CSV files
             fullDataset = Papa.parse(allDataText, { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
             const statsData = Papa.parse(statsDataText, { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
             overallEngganoData = fullDataset.filter(d => d.Region === 'Enggano');
             
             buildPage(fullDataset, statsData, geojsonData);
+            setupEvolutionViewer();
+            generateAnalysis(statsData);
+            setupScrollNav();
 
         } catch (error) {
             console.error("Failed to load data:", error);
@@ -120,20 +192,18 @@
     }
 
     function buildPage(allData, statsData, geojsonData) {
-        const map = L.map('map').setView([-5.38, 102.25], 10.5);
+        regionalMap = L.map('map').setView([-5.38, 102.25], 10.5);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
-        }).addTo(map);
+        }).addTo(regionalMap);
 
         const tableHeaders = document.querySelectorAll('.th-sortable');
         
         function populateTable(data) {
             const tableBody = document.getElementById('data-table-body');
             tableBody.innerHTML = '';
-            // Filter out the overall Enggano data and any malformed rows from the main table view
             data.filter(row => row && row.Region && row.Region !== 'Enggano').forEach(row => {
                 const tr = document.createElement('tr');
-                // Safely handle potential non-numeric data before calling toFixed()
                 const coralArea = typeof row['Coral Area (km²)'] === 'number' ? row['Coral Area (km²)'] : 0;
                 const rubbleArea = typeof row['Rubble Area (km²)'] === 'number' ? row['Rubble Area (km²)'] : 0;
                 tr.innerHTML = `
@@ -219,10 +289,8 @@
         function updateInfoPanel(regionName, data) {
              const statsTitle = document.getElementById('stats-title');
              const showOverallBtn = document.getElementById('show-overall-btn');
-
              statsTitle.innerText = `${regionName} Statistics`;
              
-             // Filter for valid numbers before calculating stats
              const coralValues = data.map(d => d['Coral Area (km²)']).filter(v => typeof v === 'number');
              const rubbleValues = data.map(d => d['Rubble Area (km²)']).filter(v => typeof v === 'number');
              
@@ -265,7 +333,7 @@
             if(regionData.length > 0){
                 updateInfoPanel(regionName, regionData);
             }
-            map.fitBounds(e.target.getBounds());
+            regionalMap.fitBounds(e.target.getBounds());
         }
 
         geojsonLayer = L.geoJSON(geojsonData, {
@@ -278,15 +346,14 @@
                 });
                 layer.bindTooltip(feature.properties.name, { permanent: false, direction: 'center', className: 'leaflet-tooltip' });
             }
-        }).addTo(map);
-        map.fitBounds(geojsonLayer.getBounds());
+        }).addTo(regionalMap);
+        regionalMap.fitBounds(geojsonLayer.getBounds());
         
         document.getElementById('show-overall-btn').addEventListener('click', () => {
             updateInfoPanel('Enggano', overallEngganoData);
-            map.fitBounds(geojsonLayer.getBounds());
+            regionalMap.fitBounds(geojsonLayer.getBounds());
         });
 
-        // --- EXPORT FUNCTIONS ---
         document.getElementById('export-chart-btn').addEventListener('click', () => {
             if (timeSeriesChart) {
                 const link = document.createElement('a');
@@ -297,7 +364,6 @@
         });
         
         document.getElementById('export-table-btn').addEventListener('click', () => {
-            // Exclude the 'Enggano' overall data from the CSV export
             const exportData = fullDataset.filter(row => row.Region !== 'Enggano');
             const csv = Papa.unparse(exportData);
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -307,11 +373,163 @@
             link.click();
         });
 
-        // --- INITIALIZE PAGE ---
         populateTable(allData);
         updateSortIcons();
         updateInfoPanel('Enggano', overallEngganoData);
     }
+    
+    function setupEvolutionViewer() {
+        const slider = document.getElementById('year-slider');
+        const yearLabel = document.getElementById('year-label');
+        const playPauseBtn = document.getElementById('play-pause-btn');
+        const stopBtn = document.getElementById('stop-btn');
+        const loader = document.getElementById('evolution-map-loader');
+
+        let currentRasterLayer = null;
+        let autoplayInterval = null;
+        
+        evolutionMap = L.map('evolution-map').setView([-5.38, 102.25], 11);
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+        }).addTo(evolutionMap);
+
+        const legend = L.control({position: 'bottomright'});
+        legend.onAdd = function (map) {
+            const div = L.DomUtil.create('div', 'info legend');
+            div.innerHTML = '<strong>Legend</strong><br>' +
+                            '<i style="background: rgb(214, 133, 137)"></i> Coral Reef<br>' +
+                            '<i style="background: rgb(255, 190, 190)"></i> Rubble';
+            return div;
+        };
+        legend.addTo(evolutionMap);
+        
+        updateTiffLayer(slider.value); 
+
+        async function updateTiffLayer(year) {
+            yearLabel.textContent = year;
+            slider.value = year; 
+            const url = `./data/pictures/Coral-mhws${year}-dvco.tif`;
+            
+            loader.style.display = 'flex';
+
+            try {
+                const response = await fetch(url);
+                const arrayBuffer = await response.arrayBuffer();
+                const georaster = await parseGeoraster(arrayBuffer);
+                
+                if (currentRasterLayer) {
+                    evolutionMap.removeLayer(currentRasterLayer);
+                }
+
+                currentRasterLayer = new GeoRasterLayer({
+                    georaster: georaster,
+                    opacity: 0.8,
+                    resolution: 256,
+                    pixelValuesToColorFn: values => {
+                        const r = values[0];
+                        const g = values[1];
+                        const b = values[2];
+                        if ((r === 240 && g === 240 && b === 240) || (r === 110 && g === 110 && b === 110)) {
+                            return null;
+                        }
+                        return `rgb(${r},${g},${b})`;
+                    }
+                });
+                currentRasterLayer.addTo(evolutionMap);
+                evolutionMap.fitBounds(currentRasterLayer.getBounds().pad(0.02));
+                
+            } catch (error) {
+                console.error(`Failed to load GeoTIFF for year ${year}:`, error);
+                if (currentRasterLayer) evolutionMap.removeLayer(currentRasterLayer);
+            } finally {
+                loader.style.display = 'none';
+            }
+        }
+        
+        function startAutoplay() {
+            stopAutoplay(); 
+            playPauseBtn.textContent = 'Pause';
+            autoplayInterval = setInterval(() => {
+                let currentYear = parseInt(slider.value);
+                currentYear++;
+                if (currentYear > 2021) {
+                    currentYear = 2011; 
+                }
+                updateTiffLayer(currentYear);
+            }, 1500); 
+        }
+
+        function stopAutoplay() {
+            clearInterval(autoplayInterval);
+            autoplayInterval = null;
+            playPauseBtn.textContent = 'Play';
+        }
+
+        slider.addEventListener('input', (e) => {
+            stopAutoplay();
+            updateTiffLayer(e.target.value);
+        });
+
+        playPauseBtn.addEventListener('click', () => {
+            if (autoplayInterval) {
+                stopAutoplay();
+            } else {
+                startAutoplay();
+            }
+        });
+        
+        stopBtn.addEventListener('click', () => {
+            stopAutoplay();
+            updateTiffLayer(2011);
+        });
+    }
+
+    function generateAnalysis(statsData) {
+        const container = document.getElementById('analysis-content');
+        if (!statsData || statsData.length === 0) return;
+        
+        const regionalStats = statsData.filter(d => d.Region !== 'Enggano');
+
+        const highestCoral = [...regionalStats].sort((a,b) => b.Mean_Coral_Area_km2 - a.Mean_Coral_Area_km2)[0];
+        const highestRubble = [...regionalStats].sort((a,b) => b.Mean_Rubble_Area_km2 - a.Mean_Rubble_Area_km2)[0];
+
+        let analysisHTML = `
+            <ul class="list-disc list-inside space-y-2">
+                <li>The region with the highest average coral reef area is <strong>${highestCoral.Region}</strong>, averaging <strong>${highestCoral.Mean_Coral_Area_km2.toFixed(4)} km²</strong>.</li>
+                <li>The region with the highest average rubble area is <strong>${highestRubble.Region}</strong>, with an average of <strong>${highestRubble.Mean_Rubble_Area_km2.toFixed(4)} km²</strong>.</li>
+                <li>Overall trends suggest fluctuations in both coral and rubble coverage, with some years showing significant growth or decline in specific areas, highlighting the dynamic nature of the reef ecosystem.</li>
+            </ul>
+        `;
+        container.innerHTML += analysisHTML;
+    }
+    
+    function setupScrollNav() {
+        const navLinks = document.querySelectorAll('.nav-link');
+        const sections = document.querySelectorAll('section');
+
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    navLinks.forEach(link => {
+                        link.classList.remove('active');
+                        if (link.getAttribute('href').substring(1) === entry.target.id) {
+                            link.classList.add('active');
+                        }
+                    });
+                }
+            });
+        }, { threshold: 0.5 });
+
+        sections.forEach(section => {
+            observer.observe(section);
+        });
+    }
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        setTimeout(setupScrollNav, 500); 
+    });
+
+
     </script>
 </body>
 </html>
