@@ -42,12 +42,15 @@
             </div>
             <div class="lg:col-span-1 flex flex-col gap-6">
                 <div id="info-panel" class="bg-white p-6 rounded-xl shadow-lg flex-grow">
-                    <h2 class="font-header text-3xl font-semibold border-b-2 border-slate-200 pb-2 mb-4">Region Statistics</h2>
+                    <div class="flex justify-between items-center border-b-2 border-slate-200 pb-2 mb-4">
+                        <h2 id="stats-title" class="font-header text-3xl font-semibold">Region Statistics</h2>
+                        <button id="show-overall-btn" class="text-xs bg-slate-200 hover:bg-slate-300 text-slate-600 font-bold py-1 px-3 rounded-lg transition duration-300" style="display: none;">Show Overall</button>
+                    </div>
                     <div id="info-content" class="text-slate-600">
-                        <p class="text-center py-8">Click on a region on the map to view its detailed statistics.</p>
+                        <p class="text-center py-8">Loading statistics...</p>
                     </div>
                 </div>
-                <div id="chart-panel" class="bg-white p-6 rounded-xl shadow-lg" style="display: none;">
+                <div id="chart-panel" class="bg-white p-6 rounded-xl shadow-lg">
                     <div class="flex justify-between items-center border-b-2 border-slate-200 pb-2 mb-4">
                         <h2 id="chart-title" class="font-header text-3xl font-semibold text-center"></h2>
                         <button id="export-chart-btn" class="text-sm bg-cyan-600 hover:bg-cyan-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Save as PNG</button>
@@ -82,10 +85,9 @@
     // --- GLOBAL STATE & ICONS ---
     let timeSeriesChart;
     let fullDataset = [];
+    let overallEngganoData = [];
     const sortIcons = {
-        none: '&#x2195;', // Up-down arrow
-        asc: '&#x2191;',  // Up arrow
-        desc: '&#x2193;' // Down arrow
+        none: '&#x2195;', asc: '&#x2191;', desc: '&#x2193;'
     };
     let currentSort = { column: 'Year', order: 'asc' };
 
@@ -104,8 +106,22 @@
             const statsDataText = await statsDataResponse.text();
             const geojsonData = await geojsonResponse.json();
 
-            fullDataset = Papa.parse(allDataText, { header: true, dynamicTyping: true }).data;
+            // Manually add the overall Enggano data to the dataset
+            const engganoOverallRows = `2011,Enggano,21.27230729,11.42616834
+2012,Enggano,41.23034383,19.77215072
+2013,Enggano,18.32863124,29.08677245
+2014,Enggano,15.4256177,4.862075698
+2015,Enggano,18.10063067,17.53571208
+2016,Enggano,12.12469235,29.35107883
+2017,Enggano,9.246366776,19.2014232
+2018,Enggano,18.75703994,31.96364579
+2019,Enggano,11.6541689,3.546352704
+2020,Enggano,19.90430392,43.64395488
+2021,Enggano,19.64580646,7.041877257`;
+            
+            fullDataset = Papa.parse(allDataText + '\n' + engganoOverallRows, { header: true, dynamicTyping: true }).data;
             const statsData = Papa.parse(statsDataText, { header: true, dynamicTyping: true }).data;
+            overallEngganoData = fullDataset.filter(d => d.Region === 'Enggano');
             
             buildPage(fullDataset, statsData, geojsonData);
 
@@ -116,19 +132,18 @@
     }
 
     function buildPage(allData, statsData, geojsonData) {
-        // --- MAP ---
         const map = L.map('map').setView([-5.38, 102.25], 10.5);
         L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
         }).addTo(map);
 
-        // --- TABLE & SORTING ---
         const tableHeaders = document.querySelectorAll('.th-sortable');
         
         function populateTable(data) {
             const tableBody = document.getElementById('data-table-body');
-            tableBody.innerHTML = ''; // Clear existing rows
-            data.forEach(row => {
+            tableBody.innerHTML = '';
+            // Filter out the overall Enggano data from the main table view
+            data.filter(row => row.Region !== 'Enggano').forEach(row => {
                 const tr = document.createElement('tr');
                 tr.innerHTML = `
                     <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-slate-900">${row.Year}</td>
@@ -176,18 +191,12 @@
                 updateSortIcons();
             });
         });
-
-        // Initial population
-        populateTable(allData);
-        updateSortIcons();
-
-
-        // --- CHART ---
+        
         const chartCanvas = document.getElementById('timeSeriesChart').getContext('2d');
         
         function createOrUpdateChart(regionName) {
             const chartPanel = document.getElementById('chart-panel');
-            const regionData = allData.filter(d => d.Region === regionName);
+            const regionData = fullDataset.filter(d => d.Region === regionName);
             if (!regionData.length) {
                 chartPanel.style.display = 'none';
                 return;
@@ -214,36 +223,55 @@
             });
         }
 
-        // --- MAP INTERACTIVITY ---
         const infoContent = document.getElementById('info-content');
-        let geojsonLayer;
+        
+        function updateInfoPanel(regionName, data) {
+             const statsTitle = document.getElementById('stats-title');
+             const showOverallBtn = document.getElementById('show-overall-btn');
 
+             statsTitle.innerText = `${regionName} Statistics`;
+             
+             const coralValues = data.map(d => d['Coral Area (km²)']);
+             const rubbleValues = data.map(d => d['Rubble Area (km²)']);
+             
+             const meanCoral = coralValues.reduce((a, b) => a + b, 0) / coralValues.length;
+             const minCoral = Math.min(...coralValues);
+             const maxCoral = Math.max(...coralValues);
+             
+             const meanRubble = rubbleValues.reduce((a, b) => a + b, 0) / rubbleValues.length;
+             const minRubble = Math.min(...rubbleValues);
+             const maxRubble = Math.max(...rubbleValues);
+             
+             infoContent.innerHTML = `
+                <div class="mt-4 space-y-3">
+                    <div>
+                        <h4 class="font-semibold text-cyan-700">Coral Reef Area (km²)</h4>
+                        <ul class="list-disc list-inside text-sm pl-2">
+                            <li><strong>Mean:</strong> ${meanCoral.toFixed(6)}</li>
+                            <li><strong>Min:</strong> ${minCoral.toFixed(6)}</li>
+                            <li><strong>Max:</strong> ${maxCoral.toFixed(6)}</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold text-orange-600">Rubble Area (km²)</h4>
+                        <ul class="list-disc list-inside text-sm pl-2">
+                            <li><strong>Mean:</strong> ${meanRubble.toFixed(6)}</li>
+                            <li><strong>Min:</strong> ${minRubble.toFixed(6)}</li>
+                            <li><strong>Max:</strong> ${maxRubble.toFixed(6)}</li>
+                        </ul>
+                    </div>
+                </div>`;
+            createOrUpdateChart(regionName);
+            showOverallBtn.style.display = regionName === 'Enggano' ? 'none' : 'inline-block';
+        }
+
+        let geojsonLayer;
+        
         function onFeatureClick(e) {
             const regionName = e.target.feature.properties.name;
             const stats = statsData.find(d => d.Region === regionName);
-
-            if (stats) {
-                infoContent.innerHTML = `
-                    <h3 class="font-header text-2xl font-semibold text-slate-700">${stats.Region}</h3>
-                    <div class="mt-4 space-y-3">
-                        <div>
-                            <h4 class="font-semibold text-cyan-700">Coral Reef Area (km²)</h4>
-                            <ul class="list-disc list-inside text-sm pl-2">
-                                <li><strong>Mean:</strong> ${stats.Mean_Coral_Area_km2.toFixed(6)}</li>
-                                <li><strong>Min:</strong> ${stats.Min_Coral_Area_km2.toFixed(6)}</li>
-                                <li><strong>Max:</strong> ${stats.Max_Coral_Area_km2.toFixed(6)}</li>
-                            </ul>
-                        </div>
-                        <div>
-                            <h4 class="font-semibold text-orange-600">Rubble Area (km²)</h4>
-                            <ul class="list-disc list-inside text-sm pl-2">
-                                <li><strong>Mean:</strong> ${stats.Mean_Rubble_Area_km2.toFixed(6)}</li>
-                                <li><strong>Min:</strong> ${stats.Min_Rubble_Area_km2.toFixed(6)}</li>
-                                <li><strong>Max:</strong> ${stats.Max_Rubble_Area_km2.toFixed(6)}</li>
-                            </ul>
-                        </div>
-                    </div>`;
-                createOrUpdateChart(regionName);
+            if(stats){
+                updateInfoPanel(stats.Region, allData.filter(d => d.Region === regionName));
             }
             map.fitBounds(e.target.getBounds());
         }
@@ -261,6 +289,11 @@
         }).addTo(map);
         map.fitBounds(geojsonLayer.getBounds());
         
+        document.getElementById('show-overall-btn').addEventListener('click', () => {
+            updateInfoPanel('Enggano', overallEngganoData);
+            map.fitBounds(geojsonLayer.getBounds());
+        });
+
         // --- EXPORT FUNCTIONS ---
         document.getElementById('export-chart-btn').addEventListener('click', () => {
             if (timeSeriesChart) {
@@ -272,13 +305,18 @@
         });
         
         document.getElementById('export-table-btn').addEventListener('click', () => {
-            const csv = Papa.unparse(fullDataset);
+            const csv = Papa.unparse(fullDataset.filter(row => row.Region !== 'Enggano'));
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
-            link.setAttribute('download', 'enggano_reef_data.csv');
+            link.setAttribute('download', 'enggano_regional_data.csv');
             link.click();
         });
+
+        // --- INITIALIZE PAGE ---
+        populateTable(allData);
+        updateSortIcons();
+        updateInfoPanel('Enggano', overallEngganoData);
     }
     </script>
 </body>
