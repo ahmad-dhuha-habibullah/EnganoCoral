@@ -106,21 +106,9 @@
             const statsDataText = await statsDataResponse.text();
             const geojsonData = await geojsonResponse.json();
 
-            // Manually add the overall Enggano data to the dataset
-            const engganoOverallRows = `2011,Enggano,21.27230729,11.42616834
-2012,Enggano,41.23034383,19.77215072
-2013,Enggano,18.32863124,29.08677245
-2014,Enggano,15.4256177,4.862075698
-2015,Enggano,18.10063067,17.53571208
-2016,Enggano,12.12469235,29.35107883
-2017,Enggano,9.246366776,19.2014232
-2018,Enggano,18.75703994,31.96364579
-2019,Enggano,11.6541689,3.546352704
-2020,Enggano,19.90430392,43.64395488
-2021,Enggano,19.64580646,7.041877257`;
-            
-            fullDataset = Papa.parse(allDataText + '\n' + engganoOverallRows, { header: true, dynamicTyping: true }).data;
-            const statsData = Papa.parse(statsDataText, { header: true, dynamicTyping: true }).data;
+            // Use PapaParse with skipEmptyLines to prevent errors from trailing newlines in CSV files
+            fullDataset = Papa.parse(allDataText, { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
+            const statsData = Papa.parse(statsDataText, { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
             overallEngganoData = fullDataset.filter(d => d.Region === 'Enggano');
             
             buildPage(fullDataset, statsData, geojsonData);
@@ -142,14 +130,17 @@
         function populateTable(data) {
             const tableBody = document.getElementById('data-table-body');
             tableBody.innerHTML = '';
-            // Filter out the overall Enggano data from the main table view
-            data.filter(row => row.Region !== 'Enggano').forEach(row => {
+            // Filter out the overall Enggano data and any malformed rows from the main table view
+            data.filter(row => row && row.Region && row.Region !== 'Enggano').forEach(row => {
                 const tr = document.createElement('tr');
+                // Safely handle potential non-numeric data before calling toFixed()
+                const coralArea = typeof row['Coral Area (km²)'] === 'number' ? row['Coral Area (km²)'] : 0;
+                const rubbleArea = typeof row['Rubble Area (km²)'] === 'number' ? row['Rubble Area (km²)'] : 0;
                 tr.innerHTML = `
                     <td class="px-4 py-2 whitespace-nowrap text-sm font-medium text-slate-900">${row.Year}</td>
                     <td class="px-4 py-2 whitespace-nowrap text-sm text-slate-600">${row.Region}</td>
-                    <td class="px-4 py-2 whitespace-nowrap text-sm text-slate-500">${row['Coral Area (km²)'].toFixed(6)}</td>
-                    <td class="px-4 py-2 whitespace-nowrap text-sm text-slate-500">${row['Rubble Area (km²)'].toFixed(6)}</td>`;
+                    <td class="px-4 py-2 whitespace-nowrap text-sm text-slate-500">${coralArea.toFixed(6)}</td>
+                    <td class="px-4 py-2 whitespace-nowrap text-sm text-slate-500">${rubbleArea.toFixed(6)}</td>`;
                 tableBody.appendChild(tr);
             });
         }
@@ -231,16 +222,17 @@
 
              statsTitle.innerText = `${regionName} Statistics`;
              
-             const coralValues = data.map(d => d['Coral Area (km²)']);
-             const rubbleValues = data.map(d => d['Rubble Area (km²)']);
+             // Filter for valid numbers before calculating stats
+             const coralValues = data.map(d => d['Coral Area (km²)']).filter(v => typeof v === 'number');
+             const rubbleValues = data.map(d => d['Rubble Area (km²)']).filter(v => typeof v === 'number');
              
-             const meanCoral = coralValues.reduce((a, b) => a + b, 0) / coralValues.length;
-             const minCoral = Math.min(...coralValues);
-             const maxCoral = Math.max(...coralValues);
+             const meanCoral = coralValues.length ? coralValues.reduce((a, b) => a + b, 0) / coralValues.length : 0;
+             const minCoral = coralValues.length ? Math.min(...coralValues) : 0;
+             const maxCoral = coralValues.length ? Math.max(...coralValues) : 0;
              
-             const meanRubble = rubbleValues.reduce((a, b) => a + b, 0) / rubbleValues.length;
-             const minRubble = Math.min(...rubbleValues);
-             const maxRubble = Math.max(...rubbleValues);
+             const meanRubble = rubbleValues.length ? rubbleValues.reduce((a, b) => a + b, 0) / rubbleValues.length : 0;
+             const minRubble = rubbleValues.length ? Math.min(...rubbleValues) : 0;
+             const maxRubble = rubbleValues.length ? Math.max(...rubbleValues) : 0;
              
              infoContent.innerHTML = `
                 <div class="mt-4 space-y-3">
@@ -269,9 +261,9 @@
         
         function onFeatureClick(e) {
             const regionName = e.target.feature.properties.name;
-            const stats = statsData.find(d => d.Region === regionName);
-            if(stats){
-                updateInfoPanel(stats.Region, allData.filter(d => d.Region === regionName));
+            const regionData = allData.filter(d => d.Region === regionName);
+            if(regionData.length > 0){
+                updateInfoPanel(regionName, regionData);
             }
             map.fitBounds(e.target.getBounds());
         }
@@ -305,7 +297,9 @@
         });
         
         document.getElementById('export-table-btn').addEventListener('click', () => {
-            const csv = Papa.unparse(fullDataset.filter(row => row.Region !== 'Enggano'));
+            // Exclude the 'Enggano' overall data from the CSV export
+            const exportData = fullDataset.filter(row => row.Region !== 'Enggano');
+            const csv = Papa.unparse(exportData);
             const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
             const link = document.createElement('a');
             link.href = URL.createObjectURL(blob);
