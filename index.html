@@ -16,6 +16,12 @@
     <script src="https://unpkg.com/georaster"></script>
     <script src="https://unpkg.com/georaster-layer-for-leaflet"></script>
 
+    <!-- Exporting Libraries -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.0/FileSaver.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+
     <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -46,6 +52,7 @@
             <a href="#dashboard-section" class="nav-link px-4 py-2 font-bold rounded-lg transition duration-200 hover:bg-slate-200">Dashboard</a>
             <a href="#evolution-section" class="nav-link px-4 py-2 font-bold rounded-lg transition duration-200 hover:bg-slate-200">Reef Evolution</a>
             <a href="#datatable-section" class="nav-link px-4 py-2 font-bold rounded-lg transition duration-200 hover:bg-slate-200">Data Table</a>
+            <a href="#export-section" class="nav-link px-4 py-2 font-bold rounded-lg transition duration-200 hover:bg-slate-200">Exports</a>
         </div>
     </nav>
     
@@ -148,12 +155,31 @@
                  </div>
             </div>
         </section>
+        
+        <!-- Export Section -->
+        <section id="export-section" class="mb-8">
+            <div class="bg-white p-6 rounded-xl shadow-lg">
+                <h2 class="font-header text-4xl font-semibold text-center mb-4">Exports & Reports</h2>
+                <div class="flex flex-col sm:flex-row justify-center items-center gap-4">
+                     <button id="export-pdf-btn" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h8a2 2 0 012 2v12a1 1 0 110 2h-3v-4a1 1 0 00-1-1H9a1 1 0 00-1 1v4H5a1 1 0 110-2V4zm5 2a1 1 0 100 2h1a1 1 0 100-2H9z" clip-rule="evenodd" /></svg>
+                        Generate PDF Report
+                    </button>
+                     <button id="export-zip-btn" class="bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-6 rounded-lg transition duration-300 flex items-center gap-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4zm2 6a1 1 0 011-1h6a1 1 0 110 2H7a1 1 0 01-1-1zm1 3a1 1 0 100 2h6a1 1 0 100-2H7z" clip-rule="evenodd" /></svg>
+                        Download Data Package (.zip)
+                    </button>
+                </div>
+            </div>
+        </section>
     </div>
 
     <script>
     // --- GLOBAL STATE & ICONS ---
     let timeSeriesChart;
     let fullDataset = [];
+    let statsDataset = [];
+    let geojsonDataset = {};
     let overallEngganoData = [];
     let regionalMap, evolutionMap;
     const sortIcons = {
@@ -174,16 +200,17 @@
             
             const allDataText = await allDataResponse.text();
             const statsDataText = await statsDataResponse.text();
-            const geojsonData = await geojsonResponse.json();
+            geojsonDataset = await geojsonResponse.json();
 
             fullDataset = Papa.parse(allDataText, { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
-            const statsData = Papa.parse(statsDataText, { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
+            statsDataset = Papa.parse(statsDataText, { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
             overallEngganoData = fullDataset.filter(d => d.Region === 'Enggano');
             
-            buildPage(fullDataset, statsData, geojsonData);
+            buildPage(fullDataset, statsDataset, geojsonDataset);
             setupEvolutionViewer();
-            generateAnalysis(statsData);
+            generateAnalysis(statsDataset);
             setupScrollNav();
+            setupExportButtons();
 
         } catch (error) {
             console.error("Failed to load data:", error);
@@ -353,26 +380,7 @@
             updateInfoPanel('Enggano', overallEngganoData);
             regionalMap.fitBounds(geojsonLayer.getBounds());
         });
-
-        document.getElementById('export-chart-btn').addEventListener('click', () => {
-            if (timeSeriesChart) {
-                const link = document.createElement('a');
-                link.href = timeSeriesChart.toBase64Image();
-                link.download = `${document.getElementById('chart-title').innerText.replace(' Trends', '')}-chart.png`;
-                link.click();
-            }
-        });
         
-        document.getElementById('export-table-btn').addEventListener('click', () => {
-            const exportData = fullDataset.filter(row => row.Region !== 'Enggano');
-            const csv = Papa.unparse(exportData);
-            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.setAttribute('download', 'enggano_regional_data.csv');
-            link.click();
-        });
-
         populateTable(allData);
         updateSortIcons();
         updateInfoPanel('Enggano', overallEngganoData);
@@ -522,6 +530,82 @@
 
         sections.forEach(section => {
             observer.observe(section);
+        });
+    }
+
+    function setupExportButtons() {
+        document.getElementById('export-chart-btn').addEventListener('click', () => {
+            if (timeSeriesChart) {
+                const link = document.createElement('a');
+                link.href = timeSeriesChart.toBase64Image();
+                link.download = `${document.getElementById('chart-title').innerText.replace(' Trends', '')}-chart.png`;
+                link.click();
+            }
+        });
+        
+        document.getElementById('export-table-btn').addEventListener('click', () => {
+            const exportData = fullDataset.filter(row => row.Region !== 'Enggano');
+            const csv = Papa.unparse(exportData);
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.setAttribute('download', 'enggano_regional_data.csv');
+            link.click();
+        });
+
+        document.getElementById('export-zip-btn').addEventListener('click', async () => {
+            const zip = new JSZip();
+            
+            // Add CSV files
+            zip.file("all_data.csv", Papa.unparse(fullDataset));
+            zip.file("stats_summary.csv", Papa.unparse(statsDataset));
+
+            // Add GeoJSON file
+            zip.file("regions.geojson", JSON.stringify(geojsonDataset, null, 2));
+
+            // Generate and save the zip file
+            const content = await zip.generateAsync({ type: "blob" });
+            saveAs(content, "enggano-reef-data-package.zip");
+        });
+
+        document.getElementById('export-pdf-btn').addEventListener('click', () => {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF();
+
+            // Title
+            doc.setFontSize(22);
+            doc.text("Enggano Reef Dashboard Report", 105, 20, { align: 'center' });
+
+            // Preamble
+            doc.setFontSize(11);
+            doc.text(document.querySelector('header p').innerText, 105, 30, { align: 'center', maxWidth: 180 });
+            
+            // Analysis
+            doc.setFontSize(16);
+            doc.text("Analysis & Key Insights", 14, 50);
+            doc.setFontSize(11);
+            const analysisText = document.getElementById('analysis-content').innerText.replace("Analyzing the data from 2011 to 2021 reveals distinct patterns across Enggano Island's reef regions:", "").trim();
+            doc.text(analysisText, 14, 60, { maxWidth: 180 });
+
+            // Table
+            doc.addPage();
+            doc.setFontSize(16);
+            doc.text("Complete Regional Data", 14, 20);
+            const tableData = fullDataset.filter(row => row.Region !== 'Enggano').map(row => [
+                row.Year,
+                row.Region,
+                row['Coral Area (km²)'].toFixed(6),
+                row['Rubble Area (km²)'].toFixed(6)
+            ]);
+            doc.autoTable({
+                startY: 30,
+                head: [['Year', 'Region', 'Coral Area (km²)', 'Rubble Area (km²)']],
+                body: tableData,
+                theme: 'striped',
+                headStyles: { fillColor: [79, 70, 229] }
+            });
+
+            doc.save('enggano-reef-report.pdf');
         });
     }
     
