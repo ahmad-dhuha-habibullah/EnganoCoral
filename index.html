@@ -5,24 +5,20 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Enggano Island - Regional Coral Health Dashboard</title>
     
-    <!-- CSS & JS Libraries -->
     <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="" />
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
     
-    <!-- GeoTIFF Libraries -->
     <script src="https://unpkg.com/georaster"></script>
     <script src="https://unpkg.com/georaster-layer-for-leaflet"></script>
 
-    <!-- Exporting Libraries -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.0/FileSaver.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
 
-    <!-- Google Fonts -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Teko:wght@500;600&display=swap" rel="stylesheet">
@@ -41,7 +37,6 @@
     </style>
 </head>
 <body class="text-slate-800">
-    <!-- Sticky Navigation Bar -->
     <nav class="sticky top-0 bg-white/80 backdrop-blur-sm shadow-md z-40 mb-6">
         <div class="container mx-auto flex justify-center p-2 gap-4">
             <a href="https://ahmad-dhuha-habibullah.github.io/EnganoCoral/" class="nav-link px-4 py-2 font-bold rounded-lg transition duration-200 hover:bg-slate-200" title="Home">
@@ -57,15 +52,13 @@
     </nav>
     
     <div class="container mx-auto p-4 lg:p-6">
-        <!-- Header -->
         <header class="text-center mb-8">
             <h1 class="font-header text-5xl md:text-6xl font-semibold text-slate-700 tracking-wide">ENGGANO REEF DASHBOARD</h1>
             <p class="text-slate-500 text-lg max-w-3xl mx-auto mt-2">
-                An interactive exploration of coral reef and rubble area changes around Enggano Island from 2011 to 2021.
+                An interactive exploration of coral reef and rubble area changes around Enggano Island from 2011 to 2024.
             </p>
         </header>
 
-        <!-- Main Dashboard Section -->
         <section id="dashboard-section" class="mb-8">
             <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 <div class="lg:col-span-2 bg-white p-4 rounded-xl shadow-lg h-[75vh]">
@@ -98,7 +91,6 @@
             </div>
         </section>
 
-        <!-- Analysis Section -->
         <section id="analysis-section" class="mb-8">
             <div class="bg-white p-6 rounded-xl shadow-lg">
                  <div class="flex items-center gap-2 mb-4">
@@ -106,12 +98,11 @@
                     <h2 class="font-header text-4xl font-semibold text-center">Analysis & Key Insights</h2>
                 </div>
                 <div id="analysis-content" class="text-slate-700 space-y-2">
-                    <p>Analyzing the data from 2011 to 2021 reveals distinct patterns across Enggano Island's reef regions:</p>
+                    <p>Analyzing the data from 2011 to 2024 reveals distinct patterns across Enggano Island's reef regions:</p>
                 </div>
             </div>
         </section>
 
-        <!-- Evolution Viewer Section -->
         <section id="evolution-section" class="mb-8">
             <div class="bg-white p-6 rounded-xl shadow-lg">
                 <h2 class="font-header text-4xl font-semibold text-center mb-4">Coral Reef Evolution Viewer</h2>
@@ -127,13 +118,12 @@
                         <button id="play-pause-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Play</button>
                         <button id="stop-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Stop</button>
                     </div>
-                    <input id="year-slider" type="range" min="2011" max="2021" value="2011" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                    <input id="year-slider" type="range" min="2011" max="2024" value="2011" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
                     <span id="year-label" class="font-bold text-lg w-16 text-center">2011</span>
                 </div>
             </div>
         </section>
 
-        <!-- Data Table Section -->
         <section id="datatable-section" class="mb-8">
             <div class="bg-white p-6 rounded-xl shadow-lg">
                 <div class="flex justify-between items-center mb-4">
@@ -156,7 +146,6 @@
             </div>
         </section>
         
-        <!-- Export Section -->
         <section id="export-section" class="mb-8">
             <div class="bg-white p-6 rounded-xl shadow-lg">
                 <h2 class="font-header text-4xl font-semibold text-center mb-4">Exports & Reports</h2>
@@ -416,7 +405,10 @@
         async function updateTiffLayer(year) {
             yearLabel.textContent = year;
             slider.value = year; 
-            const url = `./data/pictures/Coral-mhws${year}-dvco.tif`;
+            
+            // Fetch correct file name depending on the year (dvco vs dvcogrey)
+            const fileName = year >= 2022 ? `Coral-mhws${year}-dvcogrey.tif` : `Coral-mhws${year}-dvco.tif`;
+            const url = `./data/pictures/${fileName}`;
             
             loader.style.display = 'flex';
 
@@ -460,7 +452,7 @@
             autoplayInterval = setInterval(() => {
                 let currentYear = parseInt(slider.value);
                 currentYear++;
-                if (currentYear > 2021) {
+                if (currentYear > 2024) {
                     currentYear = 2011; 
                 }
                 updateTiffLayer(currentYear);
@@ -584,7 +576,7 @@
             doc.setFontSize(16);
             doc.text("Analysis & Key Insights", 14, 50);
             doc.setFontSize(11);
-            const analysisText = document.getElementById('analysis-content').innerText.replace("Analyzing the data from 2011 to 2021 reveals distinct patterns across Enggano Island's reef regions:", "").trim();
+            const analysisText = document.getElementById('analysis-content').innerText.replace("Analyzing the data from 2011 to 2024 reveals distinct patterns across Enggano Island's reef regions:", "").trim();
             doc.text(analysisText, 14, 60, { maxWidth: 180 });
 
             // Table
