@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Enggano Island Coral Reef Dashboard (Verified)</title>
+    <title>Enggano Island Coral Reef Dashboard (Verified Analysis)</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -11,46 +11,70 @@
     <!-- PapaParse for CSV parsing -->
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
 
-    <!-- Google Fonts -->
+    <!-- Chart.js for Timeseries plotting -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <!-- Google Fonts (Matching index.html) -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Roboto+Slab:wght@600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Teko:wght@500;600&display=swap" rel="stylesheet">
 
     <!-- FontAwesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" crossorigin="anonymous" referrerpolicy="no-referrer" />
 
     <style>
         body {
-            font-family: 'Inter', sans-serif;
-            background-color: #f8fafc; /* slate-50 */
+            font-family: 'Roboto', sans-serif;
+            background-color: #f0f4f8; 
         }
-        h1, h2, h3, .font-heading {
-            font-family: 'Roboto Slab', serif;
+        .font-header {
+            font-family: 'Teko', sans-serif;
         }
         
         /* Active states for filter and sort buttons */
         #filter-container button.active, #sort-container button.active {
-            background-color: #3b82f6; /* blue-500 */
+            background-color: #4f46e5; /* indigo-600 */
             color: white;
-            border-color: #3b82f6;
+            border-color: #4f46e5;
         }
         #sort-container button.active i {
+            color: white;
+        }
+        .nav-link.active {
+            background-color: #4f46e5;
             color: white;
         }
     </style>
 </head>
 <body class="text-slate-800">
 
+    <!-- Navigation Bar (Matching index.html) -->
+    <nav class="sticky top-0 bg-white/80 backdrop-blur-sm shadow-md z-40 mb-6">
+        <div class="container mx-auto flex flex-wrap justify-center p-2 gap-2 md:gap-4">
+            <a href="https://ahmad-dhuha-habibullah.github.io/EnganoCoral/" class="nav-link px-4 py-2 font-bold rounded-lg transition duration-200 hover:bg-slate-200" title="Home">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                  <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                </svg>
+            </a>
+            <a href="https://ahmad-dhuha-habibullah.github.io/EnganoCoral/index.html#dashboard-section" class="nav-link px-4 py-2 font-bold rounded-lg transition duration-200 hover:bg-slate-200">Dashboard</a>
+            <a href="https://ahmad-dhuha-habibullah.github.io/EnganoCoral/index.html#evolution-section" class="nav-link px-4 py-2 font-bold rounded-lg transition duration-200 hover:bg-slate-200">Reef Evolution</a>
+            <a href="https://ahmad-dhuha-habibullah.github.io/EnganoCoral/index.html#datatable-section" class="nav-link px-4 py-2 font-bold rounded-lg transition duration-200 hover:bg-slate-200">Data Table</a>
+            <a href="https://ahmad-dhuha-habibullah.github.io/EnganoCoral/index.html#export-section" class="nav-link px-4 py-2 font-bold rounded-lg transition duration-200 hover:bg-slate-200">Exports</a>
+            <!-- Added Analysis Link Here -->
+            <a href="https://ahmad-dhuha-habibullah.github.io/EnganoCoral/analysis.html" class="nav-link active px-4 py-2 font-bold rounded-lg transition duration-200 hover:bg-indigo-700">Analysis</a>
+        </div>
+    </nav>
+
     <!-- Header Section -->
-    <header class="bg-white shadow-sm border-b border-slate-200 py-8 mb-8">
+    <header class="bg-white shadow-sm border-b border-slate-200 py-8 mb-8 rounded-b-xl mx-4 lg:mx-8">
         <div class="container mx-auto px-4 lg:px-8">
             <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div>
                     <div class="flex items-center gap-3 mb-2">
-                        <i class="fa-solid fa-water text-blue-500 text-3xl"></i>
-                        <h1 class="text-3xl md:text-4xl font-heading text-slate-800">Enggano Reef Analysis</h1>
+                        <i class="fa-solid fa-chart-line text-indigo-600 text-3xl"></i>
+                        <h1 class="text-4xl md:text-5xl font-header text-slate-700 tracking-wide">ENGGANO REEF ANALYSIS</h1>
                     </div>
-                    <p class="text-slate-500 text-lg">Verified Trends against 2011-2024 Source Data</p>
+                    <p class="text-slate-500 text-lg max-w-2xl">Verified Trends against 2011-2024 Source Data using Least-Squares Linear Regression.</p>
                 </div>
                 
                 <!-- Overall Summary Banner -->
@@ -61,7 +85,7 @@
                     </div>
                     <div class="w-px h-10 bg-slate-600"></div>
                     <div>
-                        <p class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Net Annual Trend</p>
+                        <p class="text-slate-400 text-xs font-bold uppercase tracking-wider mb-1">Overall Net Trend</p>
                         <p id="overall-trend" class="text-xl font-bold">--</p>
                     </div>
                 </div>
@@ -78,21 +102,21 @@
             <div class="w-full xl:w-auto">
                 <p class="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2"><i class="fa-solid fa-filter mr-1"></i> Filter by Region</p>
                 <div id="filter-container" class="flex flex-wrap gap-2">
-                    <button class="active px-5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors font-medium text-sm" data-filter="All">All Regions</button>
-                    <button class="px-5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors font-medium text-sm" data-filter="Utara">Utara</button>
-                    <button class="px-5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors font-medium text-sm" data-filter="Selatan">Selatan</button>
-                    <button class="px-5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors font-medium text-sm" data-filter="Timur">Timur</button>
-                    <button class="px-5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors font-medium text-sm" data-filter="Barat">Barat</button>
+                    <button class="active px-5 py-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-600 hover:bg-slate-200 transition-colors font-medium text-sm" data-filter="All">All Regions</button>
+                    <button class="px-5 py-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-600 hover:bg-slate-200 transition-colors font-medium text-sm" data-filter="Utara">Utara</button>
+                    <button class="px-5 py-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-600 hover:bg-slate-200 transition-colors font-medium text-sm" data-filter="Selatan">Selatan</button>
+                    <button class="px-5 py-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-600 hover:bg-slate-200 transition-colors font-medium text-sm" data-filter="Timur">Timur</button>
+                    <button class="px-5 py-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-600 hover:bg-slate-200 transition-colors font-medium text-sm" data-filter="Barat">Barat</button>
                 </div>
             </div>
             
             <div class="w-full xl:w-auto">
                 <p class="text-xs text-slate-400 font-bold uppercase tracking-wider mb-2"><i class="fa-solid fa-sort mr-1"></i> Sort by Trend</p>
                 <div id="sort-container" class="flex flex-wrap gap-2">
-                    <button class="px-5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors font-medium text-sm" data-sort="best">
+                    <button class="px-5 py-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-600 hover:bg-slate-200 transition-colors font-medium text-sm" data-sort="best">
                         <i class="fa-solid fa-arrow-trend-up text-emerald-500 mr-2"></i>Best Trend
                     </button>
-                    <button class="active px-5 py-2 rounded-lg bg-slate-50 border border-slate-200 text-slate-600 hover:bg-slate-100 transition-colors font-medium text-sm" data-sort="worst">
+                    <button class="active px-5 py-2 rounded-lg bg-slate-100 border border-slate-200 text-slate-600 hover:bg-slate-200 transition-colors font-medium text-sm" data-sort="worst">
                         <i class="fa-solid fa-arrow-trend-down text-rose-500 mr-2"></i>Worst Trend
                     </button>
                 </div>
@@ -102,13 +126,13 @@
 
         <!-- Loading Indicator -->
         <div id="loading" class="text-center py-20">
-            <i class="fa-solid fa-circle-notch fa-spin text-5xl text-blue-500 mb-4"></i>
-            <h3 class="text-xl font-heading text-slate-700">Verifying Source Data...</h3>
-            <p class="mt-2 text-slate-500">Calculating trends from all_data.csv and stats_summary.csv</p>
+            <i class="fa-solid fa-circle-notch fa-spin text-5xl text-indigo-600 mb-4"></i>
+            <h3 class="text-3xl font-header text-slate-700">Verifying Source Data...</h3>
+            <p class="mt-2 text-slate-500">Calculating regression trends from all_data.csv and stats_summary.csv</p>
         </div>
 
         <!-- Grid Container -->
-        <div id="grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6" style="display: none;">
+        <div id="grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6" style="display: none;">
             <!-- Dynamic Cards Will Be Injected Here -->
         </div>
 
@@ -117,12 +141,12 @@
     <script>
         let reefData = [];
         let currentFilter = 'All';
-        let currentSort = 'worst'; // Default to showing worst declines first
+        let currentSort = 'worst'; 
+        let chartInstances = {}; // Track charts to destroy them on re-render
 
         // --- Data Loading & Verification ---
         async function initData() {
             try {
-                // Fetch both CSV files concurrently
                 const [allDataRes, statsRes] = await Promise.all([
                     fetch('./data/all_data.csv'),
                     fetch('./data/stats_summary.csv')
@@ -150,37 +174,52 @@
             }
         }
 
-        function verifyAndBuildData(allData, statsData) {
-            // Update Overall Summary Header
-            const engganoStat = statsData.find(d => d.Region === 'Enggano');
-            const enggano2011 = allData.find(d => d.Region === 'Enggano' && d.Year === 2011);
-            const enggano2024 = allData.find(d => d.Region === 'Enggano' && d.Year === 2024);
+        // --- Linear Regression Calculator ---
+        function calculateTrend(history) {
+            const n = history.length;
+            if (n < 2) return { m: 0, b: 0, trendData: [] };
             
-            if (engganoStat && enggano2011 && enggano2024) {
+            let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+            history.forEach(p => { 
+                sumX += p.x; 
+                sumY += p.y; 
+                sumXY += p.x * p.y; 
+                sumXX += p.x * p.x; 
+            });
+            
+            const m = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+            const b = (sumY - m * sumX) / n;
+            const trendData = history.map(p => ({ x: p.x, y: m * p.x + b }));
+            
+            return { m, b, trendData };
+        }
+
+        function verifyAndBuildData(allData, statsData) {
+            // Overall Enggano Data
+            const engganoStat = statsData.find(d => d.Region === 'Enggano');
+            const engganoHistory = allData
+                .filter(d => d.Region === 'Enggano')
+                .sort((a,b) => a.Year - b.Year)
+                .map(d => ({ x: d.Year, y: d['Coral Area (km²)'] }));
+
+            if (engganoStat && engganoHistory.length > 0) {
                 document.getElementById('overall-mean').innerText = engganoStat.Mean_Coral_Area_km2.toFixed(2) + ' km²';
-                
-                // Calculate Trend (2024 minus 2011 divided by 13 years)
-                const trend = (enggano2024['Coral Area (km²)'] - enggano2011['Coral Area (km²)']) / 13;
+                const { m } = calculateTrend(engganoHistory);
                 
                 const trendEl = document.getElementById('overall-trend');
-                trendEl.innerText = (trend > 0 ? '+' : '') + trend.toFixed(3) + ' km²/yr';
-                trendEl.className = trend > 0 ? 'text-emerald-400 font-bold text-xl' : 'text-rose-400 font-bold text-xl';
+                trendEl.innerText = (m > 0 ? '+' : '') + m.toFixed(3) + ' km²/yr';
+                trendEl.className = m > 0 ? 'text-emerald-400 font-bold text-xl' : 'text-rose-400 font-bold text-xl';
             }
 
-            // Build Regional Array
-            reefData = statsData.filter(d => d.Region !== 'Enggano').map(stat => {
+            // Build Regional Array with Regression
+            reefData = statsData.filter(d => d.Region !== 'Enggano').map((stat, idx) => {
+                const historyData = allData
+                    .filter(d => d.Region === stat.Region)
+                    .sort((a,b) => a.Year - b.Year)
+                    .map(d => ({ x: d.Year, y: d['Coral Area (km²)'] }));
+
+                const { m, trendData } = calculateTrend(historyData);
                 
-                // Find start and end points to verify trend
-                const data2011 = allData.find(d => d.Region === stat.Region && d.Year === 2011);
-                const data2024 = allData.find(d => d.Region === stat.Region && d.Year === 2024);
-                
-                const area2011 = data2011 ? data2011['Coral Area (km²)'] : 0;
-                const area2024 = data2024 ? data2024['Coral Area (km²)'] : 0;
-                
-                // Annualized change
-                const avgAnnualTrend = (area2024 - area2011) / 13; 
-                
-                // Categorize Region correctly
                 let broadRegion = 'Other';
                 if (stat.Region.includes('Utara')) broadRegion = 'Utara';
                 else if (stat.Region.includes('Selatan')) broadRegion = 'Selatan';
@@ -188,15 +227,17 @@
                 else if (stat.Region.includes('Barat')) broadRegion = 'Barat';
 
                 return {
+                    id: `region-${idx}`,
                     name: stat.Region,
                     region: broadRegion,
                     meanCoral: stat.Mean_Coral_Area_km2,
                     meanRubble: stat.Mean_Rubble_Area_km2,
-                    avgAnnualTrend: avgAnnualTrend
+                    avgAnnualTrend: m, 
+                    historyData,
+                    trendData
                 };
             });
             
-            // Hide loading, show grid, render
             document.getElementById('loading').style.display = 'none';
             document.getElementById('grid').style.display = 'grid';
             renderCards();
@@ -212,30 +253,30 @@
             const trendSign = isPositive ? '+' : '';
 
             return `
-            <div class="bg-white rounded-xl shadow p-6 border-t-4 ${borderColor} hover:shadow-xl transition-all duration-300 flex flex-col h-full transform hover:-translate-y-1">
-                <div class="flex justify-between items-start mb-5">
-                    <h3 class="text-lg font-heading text-slate-800 leading-tight pr-2">${data.name}</h3>
+            <div class="bg-white rounded-xl shadow-lg p-6 border-t-4 ${borderColor} hover:shadow-xl transition-all duration-300 flex flex-col h-full transform hover:-translate-y-1">
+                <div class="flex justify-between items-start mb-4">
+                    <h3 class="text-2xl font-header text-slate-800 leading-tight pr-2">${data.name}</h3>
                     <span class="px-3 py-1 text-[10px] font-bold uppercase tracking-wider rounded-full bg-slate-100 text-slate-600 whitespace-nowrap">${data.region}</span>
                 </div>
                 
-                <div class="grid grid-cols-2 gap-3 mb-6 mt-auto">
-                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Mean Coral</p>
+                <div class="grid grid-cols-2 gap-3 mb-4">
+                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Mean Coral</p>
                         <p class="text-base font-bold text-slate-700">${data.meanCoral.toFixed(3)} <span class="text-xs font-normal text-slate-400">km²</span></p>
                     </div>
-                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-100">
-                        <p class="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">Mean Rubble</p>
+                    <div class="bg-slate-50 p-3 rounded-lg border border-slate-200">
+                        <p class="text-[10px] text-slate-500 font-bold uppercase tracking-wider mb-1">Mean Rubble</p>
                         <p class="text-base font-bold text-slate-700">${data.meanRubble.toFixed(3)} <span class="text-xs font-normal text-slate-400">km²</span></p>
                     </div>
                 </div>
                 
-                <div class="border-t border-slate-100 pt-4 mt-auto">
+                <div class="border-t border-slate-200 pt-4 mb-4">
                     <div class="flex justify-between items-center ${trendBg} p-3 rounded-lg">
                         <div>
-                            <p class="text-[10px] ${trendColor} opacity-80 font-bold uppercase tracking-wider mb-1">Avg Annual Trend</p>
+                            <p class="text-[10px] ${trendColor} opacity-90 font-bold uppercase tracking-wider mb-1">Regression Trend</p>
                             <div class="flex items-baseline">
                                 <span class="text-2xl font-bold ${trendColor}">${trendSign}${data.avgAnnualTrend.toFixed(4)}</span>
-                                <span class="ml-1 text-xs ${trendColor} opacity-70 font-medium">km²/yr</span>
+                                <span class="ml-1 text-xs ${trendColor} opacity-80 font-medium">km²/yr</span>
                             </div>
                         </div>
                         <div class="h-10 w-10 rounded-full bg-white flex items-center justify-center shadow-sm">
@@ -243,36 +284,114 @@
                         </div>
                     </div>
                 </div>
+
+                <!-- Timeseries Chart Container -->
+                <div class="mt-auto pt-2 h-40 w-full">
+                    <canvas id="chart-${data.id}"></canvas>
+                </div>
             </div>
             `;
         }
 
         function renderCards() {
             const grid = document.getElementById('grid');
-            grid.innerHTML = ''; // Clear existing
+            
+            // Destroy existing charts to prevent memory leaks
+            Object.values(chartInstances).forEach(chart => chart.destroy());
+            chartInstances = {};
+            
+            grid.innerHTML = ''; 
             
             let dataToRender = [...reefData];
 
-            // Apply Filters
             if (currentFilter !== 'All') {
                 dataToRender = dataToRender.filter(d => d.region === currentFilter);
             }
             
-            // Apply Sorts
             if (currentSort === 'best') {
                 dataToRender.sort((a, b) => b.avgAnnualTrend - a.avgAnnualTrend);
             } else if (currentSort === 'worst') {
                 dataToRender.sort((a, b) => a.avgAnnualTrend - b.avgAnnualTrend);
             }
             
-            // Render HTML
             if(dataToRender.length === 0) {
                  grid.innerHTML = `<p class="col-span-full text-center text-slate-500 py-10">No data found for this selection.</p>`;
                  return;
             }
 
+            // Inject HTML
             dataToRender.forEach(data => {
                 grid.innerHTML += createCard(data);
+            });
+
+            // Initialize Charts after DOM injection
+            dataToRender.forEach(data => {
+                const ctx = document.getElementById(`chart-${data.id}`);
+                const isPositive = data.avgAnnualTrend >= 0;
+                const lineColor = isPositive ? '#10b981' : '#f43f5e'; // emerald-500 / rose-500
+
+                if (ctx) {
+                    chartInstances[data.id] = new Chart(ctx, {
+                        type: 'scatter',
+                        data: {
+                            datasets: [
+                                {
+                                    label: 'Coral Area',
+                                    data: data.historyData,
+                                    backgroundColor: 'rgba(79, 70, 229, 0.8)', // indigo-600
+                                    borderColor: '#4f46e5',
+                                    showLine: true,
+                                    tension: 0.3,
+                                    pointRadius: 4,
+                                    borderWidth: 1.5
+                                },
+                                {
+                                    label: 'Trend Line',
+                                    data: data.trendData,
+                                    type: 'line',
+                                    borderColor: lineColor,
+                                    borderDash: [5, 5],
+                                    fill: false,
+                                    pointRadius: 0,
+                                    borderWidth: 2
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: {
+                                    backgroundColor: 'rgba(15, 23, 42, 0.9)',
+                                    callbacks: {
+                                        label: function(context) {
+                                            if (context.dataset.label === 'Trend Line') return null;
+                                            return `${context.raw.x}: ${context.raw.y.toFixed(3)} km²`;
+                                        }
+                                    }
+                                }
+                            },
+                            scales: {
+                                x: {
+                                    type: 'linear',
+                                    title: { display: false },
+                                    ticks: {
+                                        callback: function(value) { return value.toString().replace(/,/g, ''); },
+                                        maxRotation: 0,
+                                        font: { size: 10, family: 'Roboto' }
+                                    },
+                                    grid: { display: false }
+                                },
+                                y: {
+                                    title: { display: false },
+                                    ticks: { font: { size: 10, family: 'Roboto' }, maxTicksLimit: 5 },
+                                    grid: { color: '#f1f5f9' }
+                                }
+                            }
+                        }
+                    });
+                }
             });
         }
 
@@ -297,7 +416,6 @@
             }
         });
 
-        // Initialize App
         document.addEventListener('DOMContentLoaded', initData);
 
     </script>
