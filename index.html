@@ -55,7 +55,7 @@
         <header class="text-center mb-8">
             <h1 class="font-header text-5xl md:text-6xl font-semibold text-slate-700 tracking-wide">ENGGANO REEF DASHBOARD</h1>
             <p class="text-slate-500 text-lg max-w-3xl mx-auto mt-2">
-                An interactive exploration of coral reef and rubble area changes around Enggano Island from 2015 to 2024.
+                An interactive exploration of coral reef and rubble area changes around Enggano Island from 2015 to 2022.
             </p>
         </header>
 
@@ -98,7 +98,7 @@
                     <h2 class="font-header text-4xl font-semibold text-center">Analysis & Key Insights</h2>
                 </div>
                 <div id="analysis-content" class="text-slate-700 space-y-2">
-                    <p>Analyzing the data from 2015 to 2024 reveals distinct patterns across Enggano Island's reef regions:</p>
+                    <p>Analyzing the data from 2015 to 2022 reveals distinct patterns across Enggano Island's reef regions:</p>
                 </div>
             </div>
         </section>
@@ -118,7 +118,7 @@
                         <button id="play-pause-btn" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Play</button>
                         <button id="stop-btn" class="bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg transition duration-300">Stop</button>
                     </div>
-                    <input id="year-slider" type="range" min="2015" max="2024" value="2015" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
+                    <input id="year-slider" type="range" min="2015" max="2022" value="2015" class="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer">
                     <span id="year-label" class="font-bold text-lg w-16 text-center">2015</span>
                 </div>
             </div>
@@ -191,9 +191,9 @@
             const statsDataText = await statsDataResponse.text();
             geojsonDataset = await geojsonResponse.json();
 
-            // Parse and apply 2015-2026 filter
+            // Parse and apply 2015-2022 filter
             fullDataset = Papa.parse(allDataText, { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
-            fullDataset = fullDataset.filter(d => d.Year >= 2015 && d.Year <= 2026);
+            fullDataset = fullDataset.filter(d => d.Year >= 2015 && d.Year <= 2022);
 
             statsDataset = Papa.parse(statsDataText, { header: true, dynamicTyping: true, skipEmptyLines: true }).data;
             overallEngganoData = fullDataset.filter(d => d.Region === 'Enggano');
@@ -455,7 +455,7 @@
             autoplayInterval = setInterval(() => {
                 let currentYear = parseInt(slider.value);
                 currentYear++;
-                if (currentYear > 2024) {
+                if (currentYear > 2022) {
                     currentYear = 2015; 
                 }
                 updateTiffLayer(currentYear);
@@ -579,7 +579,7 @@
             doc.setFontSize(16);
             doc.text("Analysis & Key Insights", 14, 50);
             doc.setFontSize(11);
-            const analysisText = document.getElementById('analysis-content').innerText.replace("Analyzing the data from 2015 to 2024 reveals distinct patterns across Enggano Island's reef regions:", "").trim();
+            const analysisText = document.getElementById('analysis-content').innerText.replace("Analyzing the data from 2015 to 2022 reveals distinct patterns across Enggano Island's reef regions:", "").trim();
             doc.text(analysisText, 14, 60, { maxWidth: 180 });
 
             // Table
