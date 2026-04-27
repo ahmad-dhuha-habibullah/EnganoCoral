@@ -171,6 +171,7 @@
     let geojsonDataset = {};
     let overallEngganoData = [];
     let regionalMap, evolutionMap;
+    let currentActiveRegion = 'Enggano'; // Explicitly track the region for downloads
     const sortIcons = {
         none: '&#x2195;', asc: '&#x2191;', desc: '&#x2193;'
     };
@@ -275,6 +276,8 @@
         const chartCanvas = document.getElementById('timeSeriesChart').getContext('2d');
         
         function createOrUpdateChart(regionName) {
+            currentActiveRegion = regionName; // Store the region name for exports
+            
             const chartPanel = document.getElementById('chart-panel');
             const regionData = fullDataset.filter(d => d.Region === regionName);
             if (!regionData.length) {
@@ -533,7 +536,8 @@
             if (timeSeriesChart) {
                 const link = document.createElement('a');
                 link.href = timeSeriesChart.toBase64Image();
-                link.download = `${document.getElementById('chart-title').innerText.replace(' Trends', '')}-chart.png`;
+                // Utilizes the explicit currentActiveRegion variable to cleanly name the file.
+                link.download = `${currentActiveRegion}-chart.png`;
                 link.click();
             }
         });
